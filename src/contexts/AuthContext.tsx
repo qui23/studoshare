@@ -46,6 +46,14 @@ const isRateLimitError = (error: any): boolean => {
   );
 };
 
+const isWebLockError = (error: any): boolean => {
+  if (!error) return false;
+  const msg = (error.message || '').toLowerCase();
+  return (
+    error.name === 'AbortError' && (msg.includes('lock broken') || msg.includes('steal'))
+  );
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<any>(null);
   const [session, setSession] = useState<any>(null);
@@ -130,6 +138,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Also listen for unhandled promise rejections from Supabase token refresh
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
+      if (isWebLockError(reason)) {
+        // Web Lock stolen by a newer client instance — safe to suppress
+        event.preventDefault();
+        return;
+      }
       if (isRateLimitError(reason)) {
         event.preventDefault();
         // Rate limit: do nothing, let it recover naturally
