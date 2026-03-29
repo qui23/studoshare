@@ -26,7 +26,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (!mounted) return;
       if (error) {
-        // Stale/invalid refresh token — clear session silently
+        // Stale/invalid refresh token — clear stored session and reset state
+        supabase.auth.signOut({ scope: 'local' }).catch(() => {});
         setSession(null);
         setUser(null);
         setLoading(false);
@@ -37,6 +38,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
     }).catch(() => {
       if (!mounted) return;
+      supabase.auth.signOut({ scope: 'local' }).catch(() => {});
       setSession(null);
       setUser(null);
       setLoading(false);
