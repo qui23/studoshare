@@ -241,11 +241,11 @@ export default function DocumentDetailHeader() {
           </div>
 
           {/* Actions */}
-          <div className="flex flex-col gap-2 flex-shrink-0 min-w-[160px]">
+          <div className="flex flex-row lg:flex-col gap-2 flex-shrink-0 w-full lg:w-auto lg:min-w-[160px]">
             <button
               onClick={handleDownload}
               disabled={downloading}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-70 text-white text-sm font-display font-600 rounded-xl transition-all duration-150 shadow-sm w-full"
+              className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-70 text-white text-sm font-display font-600 rounded-xl transition-all duration-150 shadow-sm w-full"
             >
               {downloading ? (
                 <>

@@ -86,7 +86,7 @@ export default function HomeHero({ onSearch, onSubjectChange, onFileTypeChange }
     : [];
 
   return (
-    <div className="relative bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 rounded-2xl overflow-hidden px-6 py-10 lg:px-10">
+    <div className="relative bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 rounded-2xl overflow-hidden px-4 py-8 sm:px-6 sm:py-10 lg:px-10">
       {/* Background decoration */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
@@ -106,7 +106,7 @@ export default function HomeHero({ onSearch, onSubjectChange, onFileTypeChange }
           </div>
         )}
 
-        <h1 className="font-display font-800 text-2xl lg:text-4xl text-white mb-2 leading-tight">
+        <h1 className="font-display font-800 text-xl sm:text-2xl lg:text-4xl text-white mb-2 leading-tight">
           Find Study Materials for<br className="hidden md:block" /> Any Subject, Any University
         </h1>
         <p className="text-indigo-200 text-sm lg:text-base mb-6 max-w-xl">
@@ -114,9 +114,9 @@ export default function HomeHero({ onSearch, onSubjectChange, onFileTypeChange }
         </p>
 
         {/* Search Form */}
-        <form onSubmit={handleSearch} className="bg-white rounded-xl p-2 shadow-xl flex flex-col lg:flex-row gap-2 max-w-3xl">
+        <form onSubmit={handleSearch} className="bg-white rounded-xl p-2 shadow-xl flex flex-col gap-2 max-w-3xl">
           {/* Keyword Input */}
-          <div className="flex-1 flex items-center gap-2 px-3">
+          <div className="flex items-center gap-2 px-3">
             <Icon name="MagnifyingGlassIcon" size={18} className="text-gray-400 flex-shrink-0" />
             <input
               type="text"
@@ -128,7 +128,7 @@ export default function HomeHero({ onSearch, onSubjectChange, onFileTypeChange }
           </div>
 
           {/* Subject Select */}
-          <div className="flex items-center gap-2 px-3 border-t lg:border-t-0 lg:border-l border-gray-100 min-w-0 lg:min-w-[160px]">
+          <div className="flex items-center gap-2 px-3 border-t border-gray-100">
             <Icon name="AcademicCapIcon" size={16} className="text-gray-400 flex-shrink-0" />
             {subject === 'other' ? (
               <input
@@ -168,7 +168,7 @@ export default function HomeHero({ onSearch, onSubjectChange, onFileTypeChange }
 
           <button
             type="submit"
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-sm font-display font-600 rounded-lg transition-all duration-150 flex-shrink-0"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-sm font-display font-600 rounded-lg transition-all duration-150"
           >
             <Icon name="MagnifyingGlassIcon" size={16} />
             Search

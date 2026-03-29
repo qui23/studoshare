@@ -25,19 +25,17 @@ const nextConfig = {
   },
 
   webpack(config) {
-    config.module.rules.push({
-      test: /\.(jsx|tsx)$/,
-      exclude: [/node_modules/],
-      use: [{
-        loader: '@dhiwise/component-tagger/nextLoader',
-      }],
-    });
-
     // Allow better-sqlite3 native module to be used in API routes
     config.externals = [
       ...(Array.isArray(config.externals) ? config.externals : config.externals ? [config.externals] : []),
       'better-sqlite3',
     ];
+
+    config.module.rules.push({
+        test: /\.(jsx|tsx)$/,
+        exclude: [/node_modules/],
+        use: [{ loader: '@dhiwise/component-tagger/nextLoader' }],
+      });
 
     return config;
   },

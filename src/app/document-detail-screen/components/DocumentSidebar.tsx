@@ -93,7 +93,7 @@ export default function DocumentSidebar() {
     : '—';
 
   return (
-    <aside className="hidden lg:block w-64 xl:w-72 flex-shrink-0 space-y-4 sticky top-24">
+    <aside className="w-full lg:w-64 xl:w-72 flex-shrink-0 space-y-4 lg:sticky lg:top-24">
       {/* Document Stats */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">

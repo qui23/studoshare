@@ -31,9 +31,10 @@ const DEFAULT_COLORS = [
 interface FilterSidebarProps {
   onFileTypeChange?: (types: string[]) => void;
   onDateRangeChange?: (range: string) => void;
+  mobile?: boolean;
 }
 
-export default function FilterSidebar({ onFileTypeChange, onDateRangeChange }: FilterSidebarProps) {
+export default function FilterSidebar({ onFileTypeChange, onDateRangeChange, mobile }: FilterSidebarProps) {
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [fileTypes, setFileTypes] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState('all');
@@ -99,6 +100,77 @@ export default function FilterSidebar({ onFileTypeChange, onDateRangeChange }: F
   };
 
   const activeCount = selectedSubjects.length + fileTypes.length + (dateRange !== 'all' ? 1 : 0);
+
+  // Mobile variant: horizontal compact layout
+  if (mobile) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Icon name="FunnelIcon" size={15} className="text-indigo-600" />
+            <span className="font-display font-600 text-sm text-gray-900">Filters</span>
+            {activeCount > 0 && (
+              <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium tabular-nums">{activeCount}</span>
+            )}
+          </div>
+          {activeCount > 0 && (
+            <button onClick={clearAll} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">Clear all</button>
+          )}
+        </div>
+
+        {/* File Type */}
+        <div>
+          <p className="text-xs font-display font-600 text-gray-500 uppercase tracking-wide mb-2">File Type</p>
+          <div className="flex gap-3">
+            {[
+              { type: 'pdf', label: 'PDF', color: 'text-red-600' },
+              { type: 'docx', label: 'Word (DOCX)', color: 'text-blue-600' },
+            ].map((ft) => (
+              <label key={`ft-mob-${ft.type}`} className="flex items-center gap-2 cursor-pointer">
+                <div
+                  onClick={() => toggleFileType(ft.type)}
+                  className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all duration-150 ${
+                    fileTypes.includes(ft.type)
+                      ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'
+                  }`}
+                >
+                  {fileTypes.includes(ft.type) && (
+                    <Icon name="CheckIcon" size={10} className="text-white" />
+                  )}
+                </div>
+                <span className={`text-xs font-medium ${fileTypes.includes(ft.type) ? ft.color : 'text-gray-600'}`}>{ft.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Date Range */}
+        <div>
+          <p className="text-xs font-display font-600 text-gray-500 uppercase tracking-wide mb-2">Upload Date</p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: 'all', label: 'All time' },
+              { value: 'today', label: 'Today' },
+              { value: 'week', label: 'This week' },
+              { value: 'month', label: 'This month' },
+              { value: 'year', label: 'This year' },
+            ].map((dr) => (
+              <button
+                key={`dr-mob-${dr.value}`}
+                onClick={() => handleDateRange(dr.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border ${
+                  dateRange === dr.value
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :'text-gray-600 border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                {dr.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <aside className="hidden lg:block w-56 xl:w-60 flex-shrink-0 space-y-4 sticky top-24">

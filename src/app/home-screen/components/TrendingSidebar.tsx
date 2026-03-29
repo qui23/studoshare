@@ -33,7 +33,11 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-export default function TrendingSidebar() {
+interface TrendingSidebarProps {
+  mobile?: boolean;
+}
+
+export default function TrendingSidebar({ mobile }: TrendingSidebarProps) {
   const [trendingTags, setTrendingTags] = useState<TrendingTag[]>([]);
   const [topContributors, setTopContributors] = useState<TopContributor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,16 +47,13 @@ export default function TrendingSidebar() {
       try {
         const supabase = createClient();
 
-        // Fetch all public document tags and uploader info
         const { data: docsData } = await supabase
           .from('documents')
           .select('tags, uploader_id, user_profiles!documents_uploader_id_fkey(id, full_name)')
           .eq('visibility', 'public');
 
         if (docsData) {
-          // Build trending tags
           const tagMap: Record<string, number> = {};
-          // Build contributor upload counts
           const uploaderMap: Record<string, { name: string; count: number }> = {};
 
           docsData.forEach((doc) => {
@@ -95,6 +96,52 @@ export default function TrendingSidebar() {
 
     fetchData();
   }, []);
+
+  // Mobile variant: horizontal scrollable tags + compact contributors
+  if (mobile) {
+    return (
+      <div className="space-y-4">
+        {/* Trending Tags */}
+        {(loading || trendingTags.length > 0) && (
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
+              <Icon name="HashtagIcon" size={15} className="text-pink-500" />
+              <span className="font-display font-600 text-sm text-gray-900">Trending Tags</span>
+            </div>
+            <div className="p-3 flex flex-wrap gap-1.5">
+              {loading && <p className="text-xs text-gray-400 px-1">Loading...</p>}
+              {!loading && trendingTags.map((t) => (
+                <button
+                  key={`trend-tag-mob-${t.tag}`}
+                  className="px-2 py-1 bg-gray-50 hover:bg-indigo-50 hover:text-indigo-700 text-gray-600 text-xs rounded-lg border border-gray-100 hover:border-indigo-200 transition-all duration-150 font-medium"
+                >
+                  #{t.tag}
+                  <span className="ml-1 text-gray-400 tabular-nums">{t.count >= 1000 ? `${(t.count / 1000).toFixed(1)}k` : t.count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Upload CTA */}
+        <div className="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl p-4 flex items-center gap-4">
+          <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <Icon name="ArrowUpTrayIcon" size={20} className="text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-display font-700 text-white text-sm">Share Your Notes</p>
+            <p className="text-indigo-200 text-xs leading-relaxed">Help fellow students and earn Contributor status</p>
+          </div>
+          <Link
+            href="/upload-screen"
+            className="flex-shrink-0 px-4 py-2 bg-white text-indigo-700 text-xs font-display font-600 rounded-lg hover:bg-indigo-50 active:scale-95 transition-all duration-150"
+          >
+            Upload
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <aside className="hidden xl:block w-56 2xl:w-64 flex-shrink-0 space-y-4 sticky top-24">
