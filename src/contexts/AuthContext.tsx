@@ -13,6 +13,30 @@ export const useAuth = () => {
   return context;
 };
 
+const clearSupabaseTokens = () => {
+  try {
+    // Remove all Supabase auth keys from localStorage
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith('sb-') || key.includes('supabase')) {
+        localStorage.removeItem(key);
+      }
+    });
+  } catch {
+    // localStorage may not be available in SSR
+  }
+};
+
+const isInvalidRefreshTokenError = (error: any): boolean => {
+  if (!error) return false;
+  const msg = error.message || error.error_description || '';
+  return (
+    msg.includes('Invalid Refresh Token') ||
+    msg.includes('Refresh Token Not Found') ||
+    msg.includes('refresh_token_not_found') ||
+    error.status === 400
+  );
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<any>(null);
   const [session, setSession] = useState<any>(null);
@@ -22,26 +46,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
+    const handleInvalidToken = async () => {
+      clearSupabaseTokens();
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch {
+        // ignore
+      }
+      if (!mounted) return;
+      setSession(null);
+      setUser(null);
+      setLoading(false);
+    };
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (!mounted) return;
       if (error) {
-        // Stale/invalid refresh token — clear stored session and reset state
-        supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-        setSession(null);
-        setUser(null);
-        setLoading(false);
+        if (isInvalidRefreshTokenError(error)) {
+          handleInvalidToken();
+        } else {
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+        }
         return;
       }
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-    }).catch(() => {
+    }).catch((err) => {
       if (!mounted) return;
-      supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-      setSession(null);
-      setUser(null);
-      setLoading(false);
+      if (isInvalidRefreshTokenError(err)) {
+        handleInvalidToken();
+      } else {
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+      }
     });
 
     // Listen for auth changes
@@ -49,28 +91,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       data: { subscription }
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
+
       if (_event === 'TOKEN_REFRESHED' && !session) {
-        // Token refresh failed — clear stale session
-        supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-        setSession(null);
-        setUser(null);
-        setLoading(false);
+        handleInvalidToken();
         return;
       }
+
       if (_event === 'SIGNED_OUT') {
         setSession(null);
         setUser(null);
         setLoading(false);
         return;
       }
+
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
+    // Also listen for unhandled promise rejections from Supabase token refresh
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      if (isInvalidRefreshTokenError(reason)) {
+        event.preventDefault();
+        handleInvalidToken();
+      }
+    };
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     };
   }, [supabase]);
 
@@ -81,8 +134,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       password,
       options: {
         data: {
-          full_name: metadata?.fullName || '',
-          avatar_url: metadata?.avatarUrl || ''
+          full_name: (metadata as any)?.fullName || '',
+          avatar_url: (metadata as any)?.avatarUrl || ''
         },
         emailRedirectTo: `${window.location.origin}/auth/callback`
       }
@@ -103,6 +156,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Sign Out
   const signOut = async () => {
+    clearSupabaseTokens();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };
