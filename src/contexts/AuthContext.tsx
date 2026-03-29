@@ -1,7 +1,6 @@
-
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 const AuthContext = createContext<any>({});
@@ -18,13 +17,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<any>(null);
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
+    let mounted = true;
+
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (!mounted) return;
+      if (error) {
+        // Stale/invalid refresh token — clear session silently
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
       setSession(session);
       setUser(session?.user ?? null);
+      setLoading(false);
+    }).catch(() => {
+      if (!mounted) return;
+      setSession(null);
+      setUser(null);
       setLoading(false);
     });
 
@@ -32,13 +46,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   // Email/Password Sign Up
   const signUp = async (email: string, password: string, metadata = {}) => {

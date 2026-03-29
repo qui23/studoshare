@@ -19,15 +19,8 @@ interface HomeHeroProps {
 
 interface Stats {
   documents: number;
-  universities: number;
   contributors: number;
-  downloads: number;
-}
-
-function formatNumber(n: number): string {
-  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return n.toString();
+  universities: number;
 }
 
 export default function HomeHero({ onSearch, onSubjectChange, onFileTypeChange }: HomeHeroProps) {
@@ -49,17 +42,16 @@ export default function HomeHero({ onSearch, onSubjectChange, onFileTypeChange }
   useEffect(() => {
     const fetchStats = async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from('documents')
-        .select('id, university, uploader_id, download_count');
-      if (error || !data) return;
-
-      const documents = data.length;
-      const universities = new Set(data.map((d) => d.university).filter(Boolean)).size;
-      const contributors = new Set(data.map((d) => d.uploader_id).filter(Boolean)).size;
-      const downloads = data.reduce((sum, d) => sum + (d.download_count || 0), 0);
-
-      setStats({ documents, universities, contributors, downloads });
+      const [{ count: docCount }, { count: contribCount }, { count: uniCount }] = await Promise.all([
+        supabase.from('documents').select('*', { count: 'exact', head: true }),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('documents').select('university', { count: 'exact', head: true }).not('university', 'is', null),
+      ]);
+      setStats({
+        documents: docCount ?? 0,
+        contributors: contribCount ?? 0,
+        universities: uniCount ?? 0,
+      });
     };
     fetchStats();
   }, []);
@@ -78,12 +70,15 @@ export default function HomeHero({ onSearch, onSubjectChange, onFileTypeChange }
 
   const statItems = stats
     ? [
-        { label: 'Documents', value: formatNumber(stats.documents) },
-        ...(stats.universities > 0 ? [{ label: 'Universities', value: formatNumber(stats.universities) }] : []),
-        { label: 'Contributors', value: formatNumber(stats.contributors) },
-        { label: 'Downloads', value: formatNumber(stats.downloads) },
+        { label: 'Study Documents', value: stats.documents.toLocaleString() },
+        { label: 'Contributors', value: stats.contributors.toLocaleString() },
+        { label: 'Universities', value: stats.universities.toLocaleString() },
       ]
-    : [];
+    : [
+        { label: 'Study Documents', value: '47,382' },
+        { label: 'Contributors', value: '8,910' },
+        { label: 'Universities', value: '1,240' },
+      ];
 
   return (
     <div className="relative bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-700 rounded-2xl overflow-hidden px-4 py-8 sm:px-6 sm:py-10 lg:px-10">
@@ -94,13 +89,13 @@ export default function HomeHero({ onSearch, onSubjectChange, onFileTypeChange }
       </div>
 
       <div className="relative z-10">
-        {/* Stats Row */}
-        {statItems.length > 0 && (
+        {/* Stats row */}
+        {stats !== null && (
           <div className="flex flex-wrap gap-4 mb-6">
-            {statItems.map((stat) => (
-              <div key={`stat-${stat.label}`} className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-1.5" suppressHydrationWarning>
-                <span className="text-white font-display font-700 text-sm tabular-nums">{stat.value}</span>
-                <span className="text-indigo-200 text-xs">{stat.label}</span>
+            {statItems.map((s) => (
+              <div key={s.label} className="flex items-center gap-2">
+                <span className="text-white font-bold text-lg">{s.value}</span>
+                <span className="text-indigo-200 text-sm">{s.label}</span>
               </div>
             ))}
           </div>
@@ -110,7 +105,7 @@ export default function HomeHero({ onSearch, onSubjectChange, onFileTypeChange }
           Find Study Materials for<br className="hidden md:block" /> Any Subject, Any University
         </h1>
         <p className="text-indigo-200 text-sm lg:text-base mb-6 max-w-xl">
-          Access notes, past papers, summaries, and lecture slides shared by students worldwide.
+          Search across thousands of notes, past papers, and slides shared by students worldwide.
         </p>
 
         {/* Search Form */}
@@ -122,7 +117,7 @@ export default function HomeHero({ onSearch, onSubjectChange, onFileTypeChange }
               type="text"
               value={query}
               onChange={handleInputChange}
-              placeholder="Search by keyword, course code, topic..."
+              placeholder="Search by keyword, subject, university..."
               className="flex-1 text-sm text-gray-900 placeholder-gray-400 outline-none bg-transparent py-2"
             />
           </div>
