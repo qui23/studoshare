@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import AppLayout from '@/components/AppLayout';
 import Icon from '@/components/ui/AppIcon';
 import DocumentCard, { DocumentCardData } from '@/components/ui/DocumentCard';
@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 interface ProfileStats {
   totalDocuments: number;
   totalDownloads: number;
+  totalSaved: number;
 }
 
 interface UserSettings {
@@ -19,10 +20,10 @@ interface UserSettings {
 }
 
 function mapDocToCard(doc: any): DocumentCardData {
-  const fileType = doc.file_type?.includes('pdf')
+  const fileType = doc.file_type?.includes('pdf') || doc.file_name?.endsWith('.pdf')
     ? 'pdf'
     : doc.file_type?.includes('word') || doc.file_name?.endsWith('.docx')
-    ? 'docx' :'ppt';
+    ? 'docx' : 'ppt';
 
   const uploadedAt = doc.created_at
     ? new Date(doc.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -43,12 +44,14 @@ function mapDocToCard(doc: any): DocumentCardData {
     ratingCount: Math.floor((doc.download_count || 0) / 10),
     downloads: doc.download_count || 0,
     pages: 0,
-    contributor: doc.user_profiles?.full_name || 'You',
+    contributor: doc.user_profiles?.full_name || 'Anonymous',
     contributorRole: (doc.user_profiles?.role === 'admin' ? 'admin' : 'contributor') as 'contributor' | 'admin',
     uploadedAt,
     isNew: daysSinceUpload <= 7,
     isTrending: (doc.download_count || 0) > 5000,
     tags: doc.tags || [],
+    filePath: doc.file_path || undefined,
+    fileName: doc.file_name || undefined,
   };
 }
 
@@ -57,16 +60,19 @@ export default function UserProfileScreen() {
   const router = useRouter();
   const supabase = createClient();
 
-  const [activeTab, setActiveTab] = useState<'documents' | 'settings'>('documents');
+  const [activeTab, setActiveTab] = useState<'documents' | 'saved' | 'settings'>('documents');
   const [documents, setDocuments] = useState<DocumentCardData[]>([]);
-  const [stats, setStats] = useState<ProfileStats>({ totalDocuments: 0, totalDownloads: 0 });
+  const [savedDocuments, setSavedDocuments] = useState<DocumentCardData[]>([]);
+  const [stats, setStats] = useState<ProfileStats>({ totalDocuments: 0, totalDownloads: 0, totalSaved: 0 });
   const [loadingDocs, setLoadingDocs] = useState(true);
+  const [loadingSaved, setLoadingSaved] = useState(false);
   const [settings, setSettings] = useState<UserSettings>({ full_name: '', email: '', role: '' });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [settingsError, setSettingsError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [removingBookmarkId, setRemovingBookmarkId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -102,7 +108,7 @@ export default function UserProfileScreen() {
         .from('documents')
         .select(
           `id, title, description, subject, university, doc_type,
-           file_type, file_name, file_size, download_count, tags,
+           file_type, file_name, file_path, file_size, download_count, tags,
            created_at, visibility,
            user_profiles!documents_uploader_id_fkey(full_name, role)`
         )
@@ -115,15 +121,80 @@ export default function UserProfileScreen() {
 
         const totalDownloads = docs.reduce((sum, d) => sum + (d.download_count || 0), 0);
 
+        // Fetch saved count
+        const { count: savedCount } = await supabase
+          .from('bookmarks')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
         setStats({
           totalDocuments: docs.length,
           totalDownloads,
+          totalSaved: savedCount || 0,
         });
       }
     } catch (err) {
       console.log('Failed to load user data');
     } finally {
       setLoadingDocs(false);
+    }
+  };
+
+  const fetchSavedDocuments = useCallback(async () => {
+    if (!user) return;
+    setLoadingSaved(true);
+    try {
+      const { data, error } = await supabase
+        .from('bookmarks')
+        .select(
+          `id, created_at,
+           documents(
+             id, title, description, subject, university, doc_type,
+             file_type, file_name, file_path, file_size, download_count, tags,
+             created_at,
+             user_profiles!documents_uploader_id_fkey(full_name, role)
+           )`
+        )
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        const mapped = data
+          .filter((b: any) => b.documents)
+          .map((b: any) => mapDocToCard(b.documents));
+        setSavedDocuments(mapped);
+      }
+    } catch (err) {
+      console.log('Failed to load saved documents');
+    } finally {
+      setLoadingSaved(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (activeTab === 'saved' && user) {
+      fetchSavedDocuments();
+    }
+  }, [activeTab, user, fetchSavedDocuments]);
+
+  const handleRemoveBookmark = async (docId: string) => {
+    if (!user) return;
+    setRemovingBookmarkId(docId);
+    try {
+      const { error } = await supabase
+        .from('bookmarks')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('document_id', docId);
+
+      if (!error) {
+        setSavedDocuments((prev) => prev.filter((d) => d.id !== docId));
+        setStats((prev) => ({ ...prev, totalSaved: Math.max(0, prev.totalSaved - 1) }));
+      }
+    } catch (err) {
+      console.log('Failed to remove bookmark');
+    } finally {
+      setRemovingBookmarkId(null);
     }
   };
 
@@ -230,10 +301,11 @@ export default function UserProfileScreen() {
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-4 mb-6">
           {[
             { label: 'Documents', value: stats.totalDocuments, icon: 'DocumentTextIcon', color: 'indigo' },
             { label: 'Total Downloads', value: stats.totalDownloads.toLocaleString(), icon: 'ArrowDownTrayIcon', color: 'blue' },
+            { label: 'Saved Files', value: stats.totalSaved, icon: 'BookmarkIcon', color: 'amber' },
           ].map((stat) => (
             <div key={stat.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col gap-2">
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-${stat.color}-50`}>
@@ -251,6 +323,7 @@ export default function UserProfileScreen() {
         <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 mb-6 w-fit">
           {[
             { key: 'documents', label: 'My Documents', icon: 'DocumentTextIcon' },
+            { key: 'saved', label: 'Saved Files', icon: 'BookmarkIcon' },
             { key: 'settings', label: 'Settings', icon: 'Cog6ToothIcon' },
           ].map((tab) => (
             <button
@@ -349,6 +422,66 @@ export default function UserProfileScreen() {
                           <Icon name="TrashIcon" size={14} />
                         </button>
                       )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Saved Files Tab */}
+        {activeTab === 'saved' && (
+          <div>
+            {loadingSaved ? (
+              <div className="flex flex-col items-center justify-center py-20">
+                <svg className="animate-spin w-8 h-8 text-indigo-400 mb-3" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <p className="text-sm text-gray-400">Loading saved files...</p>
+              </div>
+            ) : savedDocuments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-xl border border-gray-100">
+                <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center mb-3">
+                  <Icon name="BookmarkIcon" size={28} className="text-amber-400" />
+                </div>
+                <p className="text-base font-medium text-gray-600">No saved files yet</p>
+                <p className="text-sm text-gray-400 mt-1 mb-4">Bookmark documents to find them here quickly</p>
+                <a
+                  href="/home-screen"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  <Icon name="BookOpenIcon" size={15} />
+                  Explore Documents
+                </a>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm text-gray-600">
+                    <span className="font-display font-600 text-gray-900">{savedDocuments.length}</span> saved file{savedDocuments.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {savedDocuments.map((doc) => (
+                    <div key={doc.id} className="relative group">
+                      <DocumentCard doc={doc} />
+                      <button
+                        onClick={() => handleRemoveBookmark(doc.id)}
+                        disabled={removingBookmarkId === doc.id}
+                        className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-amber-50 hover:border-amber-200 hover:text-amber-600 text-gray-400 disabled:opacity-50"
+                        title="Remove from saved"
+                      >
+                        {removingBookmarkId === doc.id ? (
+                          <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        ) : (
+                          <Icon name="BookmarkSlashIcon" size={14} />
+                        )}
+                      </button>
                     </div>
                   ))}
                 </div>

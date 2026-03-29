@@ -32,7 +32,9 @@ export default function DocumentDetailHeader() {
   const [doc, setDoc] = useState<DocumentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     if (!docId) { setLoading(false); return; }
@@ -40,6 +42,11 @@ export default function DocumentDetailHeader() {
       setLoading(true);
       try {
         const supabase = createClient();
+
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        setCurrentUser(user);
+
         const { data, error } = await supabase
           .from('documents')
           .select(`id, title, description, subject, university, doc_type,
@@ -49,6 +56,17 @@ export default function DocumentDetailHeader() {
           .eq('id', docId)
           .single();
         if (!error && data) setDoc(data as DocumentData);
+
+        // Check if user has bookmarked this document
+        if (user) {
+          const { data: bm } = await supabase
+            .from('bookmarks')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('document_id', docId)
+            .maybeSingle();
+          setBookmarked(!!bm);
+        }
       } catch {}
       finally { setLoading(false); }
     };
@@ -103,9 +121,35 @@ export default function DocumentDetailHeader() {
     }
   };
 
-  const handleBookmark = () => {
-    setBookmarked(!bookmarked);
-    toast.success(bookmarked ? 'Removed from saved' : 'Saved to your library');
+  const handleBookmark = async () => {
+    if (!currentUser) {
+      toast.error('Please sign in to save documents.');
+      return;
+    }
+    if (!docId) return;
+    setBookmarkLoading(true);
+    try {
+      const supabase = createClient();
+      if (bookmarked) {
+        await supabase
+          .from('bookmarks')
+          .delete()
+          .eq('user_id', currentUser.id)
+          .eq('document_id', docId);
+        setBookmarked(false);
+        toast.success('Removed from saved files');
+      } else {
+        await supabase
+          .from('bookmarks')
+          .insert({ user_id: currentUser.id, document_id: docId });
+        setBookmarked(true);
+        toast.success('Saved to your library');
+      }
+    } catch {
+      toast.error('Failed to update bookmark. Please try again.');
+    } finally {
+      setBookmarkLoading(false);
+    }
   };
 
   const handleShare = () => {
@@ -266,12 +310,20 @@ export default function DocumentDetailHeader() {
             <div className="flex gap-2">
               <button
                 onClick={handleBookmark}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium transition-all duration-150 ${
+                disabled={bookmarkLoading}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium transition-all duration-150 disabled:opacity-60 ${
                   bookmarked
                     ? 'bg-amber-50 border-amber-200 text-amber-700' :'bg-white border-gray-200 text-gray-600 hover:border-amber-200 hover:text-amber-600'
                 }`}
               >
-                <Icon name={bookmarked ? 'BookmarkSolidIcon' : 'BookmarkIcon'} size={15} />
+                {bookmarkLoading ? (
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : (
+                  <Icon name={bookmarked ? 'BookmarkSolidIcon' : 'BookmarkIcon'} size={15} />
+                )}
                 {bookmarked ? 'Saved' : 'Save'}
               </button>
               <button

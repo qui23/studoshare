@@ -97,9 +97,9 @@ export default function DocumentGrid({ searchQuery = '', subjectFilter = '', fil
       // Hero quick-filter (single type string)
       if (fileTypeFilter) {
         if (fileTypeFilter === 'pdf') {
-          query = query.ilike('file_type', '%pdf%');
+          query = query.or('file_type.ilike.%pdf%', 'file_name.ilike.%.pdf%');
         } else if (fileTypeFilter === 'word') {
-          query = query.or('file_type.ilike.%word%,file_type.ilike.%docx%,file_name.ilike.%.docx%,file_name.ilike.%.doc%');
+          query = query.or('file_type.ilike.%word%', 'file_type.ilike.%docx%', 'file_name.ilike.%.docx%', 'file_name.ilike.%.doc%');
         }
       }
 
@@ -107,7 +107,7 @@ export default function DocumentGrid({ searchQuery = '', subjectFilter = '', fil
       if (sidebarFileTypes.length > 0) {
         const conditions: string[] = [];
         if (sidebarFileTypes.includes('pdf')) {
-          conditions.push('file_type.ilike.%pdf%');
+          conditions.push('file_type.ilike.%pdf%', 'file_name.ilike.%.pdf%');
         }
         if (sidebarFileTypes.includes('docx')) {
           conditions.push('file_type.ilike.%word%', 'file_type.ilike.%docx%', 'file_name.ilike.%.docx%', 'file_name.ilike.%.doc%');
