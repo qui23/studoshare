@@ -28,12 +28,21 @@ const clearSupabaseTokens = () => {
 
 const isInvalidRefreshTokenError = (error: any): boolean => {
   if (!error) return false;
-  const msg = error.message || error.error_description || '';
+  const msg = (error.message || error.error_description || '').toLowerCase();
   return (
-    msg.includes('Invalid Refresh Token') ||
-    msg.includes('Refresh Token Not Found') ||
-    msg.includes('refresh_token_not_found') ||
-    error.status === 400
+    msg.includes('invalid refresh token') ||
+    msg.includes('refresh token not found') ||
+    msg.includes('refresh_token_not_found')
+  );
+};
+
+const isRateLimitError = (error: any): boolean => {
+  if (!error) return false;
+  const msg = (error.message || error.error_description || '').toLowerCase();
+  return (
+    msg.includes('rate limit') ||
+    msg.includes('too many requests') ||
+    error.status === 429
   );
 };
 
@@ -63,6 +72,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (!mounted) return;
       if (error) {
+        if (isRateLimitError(error)) {
+          // Rate limit: keep existing session state, just stop loading
+          setLoading(false);
+          return;
+        }
         if (isInvalidRefreshTokenError(error)) {
           handleInvalidToken();
         } else {
@@ -77,6 +91,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
     }).catch((err) => {
       if (!mounted) return;
+      if (isRateLimitError(err)) {
+        setLoading(false);
+        return;
+      }
       if (isInvalidRefreshTokenError(err)) {
         handleInvalidToken();
       } else {
@@ -112,6 +130,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Also listen for unhandled promise rejections from Supabase token refresh
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
+      if (isRateLimitError(reason)) {
+        event.preventDefault();
+        // Rate limit: do nothing, let it recover naturally
+        return;
+      }
       if (isInvalidRefreshTokenError(reason)) {
         event.preventDefault();
         handleInvalidToken();
