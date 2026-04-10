@@ -97,9 +97,9 @@ export default function DocumentGrid({ searchQuery = '', subjectFilter = '', fil
       // Hero quick-filter (single type string)
       if (fileTypeFilter) {
         if (fileTypeFilter === 'pdf') {
-          query = query.ilike('file_type', '%pdf%');
+          query = query.or('file_type.ilike.%pdf%', 'file_name.ilike.%.pdf%');
         } else if (fileTypeFilter === 'word') {
-          query = query.or('file_type.ilike.%word%,file_type.ilike.%docx%,file_name.ilike.%.docx%,file_name.ilike.%.doc%');
+          query = query.or('file_type.ilike.%word%', 'file_type.ilike.%docx%', 'file_name.ilike.%.docx%', 'file_name.ilike.%.doc%');
         }
       }
 
@@ -107,7 +107,7 @@ export default function DocumentGrid({ searchQuery = '', subjectFilter = '', fil
       if (sidebarFileTypes.length > 0) {
         const conditions: string[] = [];
         if (sidebarFileTypes.includes('pdf')) {
-          conditions.push('file_type.ilike.%pdf%');
+          conditions.push('file_type.ilike.%pdf%', 'file_name.ilike.%.pdf%');
         }
         if (sidebarFileTypes.includes('docx')) {
           conditions.push('file_type.ilike.%word%', 'file_type.ilike.%docx%', 'file_name.ilike.%.docx%', 'file_name.ilike.%.doc%');
@@ -182,11 +182,11 @@ export default function DocumentGrid({ searchQuery = '', subjectFilter = '', fil
     <div className="flex-1 min-w-0">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <div>
+        <div className="min-w-0">
           {loading ? (
             <p className="text-sm text-gray-400">Loading documents...</p>
           ) : (
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 truncate">
               {searchQuery && (
                 <span className="mr-1">
                   Results for <span className="font-display font-600 text-indigo-600">"{searchQuery}"</span>
@@ -200,16 +200,17 @@ export default function DocumentGrid({ searchQuery = '', subjectFilter = '', fil
                   {' — '}
                 </span>
               )}
-              Showing <span className="font-display font-600 text-gray-900 tabular-nums">{documents.length}</span> of{' '}
-              <span className="font-display font-600 text-indigo-600 tabular-nums">{total.toLocaleString('en-US')}</span> documents
+              <span className="font-display font-600 text-gray-900 tabular-nums">{documents.length}</span>
+              <span className="hidden sm:inline"> of{' '}
+              <span className="font-display font-600 text-indigo-600 tabular-nums">{total.toLocaleString('en-US')}</span> documents</span>
             </p>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {/* Sort */}
-          <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-3 py-1.5 shadow-sm">
-            <Icon name="BarsArrowDownIcon" size={14} className="text-gray-400" />
+          <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2 sm:px-3 py-1.5 shadow-sm">
+            <Icon name="BarsArrowDownIcon" size={14} className="text-gray-400 hidden sm:block" />
             <select
               value={sort}
               onChange={(e) => { setSort(e.target.value); setPage(1); }}
@@ -278,7 +279,7 @@ export default function DocumentGrid({ searchQuery = '', subjectFilter = '', fil
 
       {/* Pagination */}
       {!loading && total > perPage && (
-        <div className="mt-8 flex items-center justify-between flex-wrap gap-3">
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <span>Show</span>
             <select
@@ -291,7 +292,7 @@ export default function DocumentGrid({ searchQuery = '', subjectFilter = '', fil
             <span>per page</span>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap justify-center">
             <button
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page === 1}

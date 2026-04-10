@@ -2,6 +2,9 @@ import { createBrowserClient } from '@supabase/ssr';
 
 const PFX = 'sb_';
 
+// Singleton instance — prevents multiple clients competing for the Web Lock
+let _client: ReturnType<typeof createBrowserClient> | null = null;
+
 const canUseCookies = (() => {
   let cache: boolean | null = null;
   return () => {
@@ -58,7 +61,8 @@ if (typeof window !== 'undefined' && !(window as any).__sb_patched__) {
 }
 
 export function createClient() {
-  return createBrowserClient(
+  if (_client) return _client;
+  _client = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -84,4 +88,5 @@ export function createClient() {
       },
     }
   );
+  return _client;
 }

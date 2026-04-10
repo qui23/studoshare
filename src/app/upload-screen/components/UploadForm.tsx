@@ -644,22 +644,22 @@ export default function UploadForm() {
       )}
 
       {/* Submit Bar */}
-      <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-lg p-4 flex items-center justify-between gap-3 flex-wrap">
+      <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Icon name="ShieldCheckIcon" size={16} className="text-green-500" />
-          <span>Your document will be scanned for quality before publishing</span>
+          <Icon name="ShieldCheckIcon" size={16} className="text-green-500 flex-shrink-0" />
+          <span className="text-xs sm:text-sm">Your document will be scanned for quality before publishing</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
           <Link
             href="/home-screen"
-            className="px-4 py-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-sm font-display font-600 rounded-xl transition-all duration-150"
+            className="flex-1 sm:flex-none text-center px-4 py-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-sm font-display font-600 rounded-xl transition-all duration-150"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={uploading}
-            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-display font-600 rounded-xl transition-all duration-150 shadow-sm"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-display font-600 rounded-xl transition-all duration-150 shadow-sm"
           >
             {uploading ? (
               <>
